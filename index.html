@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Video Showcase</title>
+    
+    <!-- LOCAL & PRIVATE REPLAY TRACKER -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0b0b0b; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .header-container { text-align: center; margin-bottom: 30px; }
+        .header-container h1 { font-size: 2.5rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; border-bottom: 2px solid #ffffff; padding-bottom: 10px; display: inline-block; }
+        .header-container p { color: #888888; margin-top: 10px; font-size: 1rem; }
+        .video-card { background: #111111; border: 1px solid #222222; border-radius: 12px; padding: 20px; width: 100%; max-width: 800px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+        video { width: 100%; border-radius: 8px; outline: none; background-color: #000; }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <h1>Creative Content</h1>
+        <p>Watch the video below and enjoy the experience</p>
+    </div>
+
+    <div class="video-card">
+        <video id="myVideo" controls poster="https://via.placeholder.com/800x450/111/fff?text=Click+to+Play">
+            <source src="Assets\0528.mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION (Apna New Deploy Web App URL yahan lagayein) ---
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxaok03z-yDoLhISn1RHSFgwXFH3jCKH3eaPY9mtAx7QvwS5TyxN0xrhPiVIsf4_o-q/exec';
+
+        // --- 2. UNIQUE SESSION GENERATOR ---
+        // Is se har user ko ek unique ID milegi taaki woh apni hi row me save ho
+        const mySessionId = 'SESSION_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        let userEvents = [];
+        rrweb.record({
+            emit(event) {
+                userEvents.push(event);
+            },
+        });
+
+        // --- 3. DEVICE DETECTION ---
+        function getDeviceName() {
+            const ua = navigator.userAgent;
+            if (/android/i.test(ua)) {
+                const match = ua.match(/Android\s([0-9\.]+);\s([^;]*);/);
+                return match ? "Android: " + match[2] : "Android Phone";
+            }
+            if (/iPhone|iPad|iPod/i.test(ua)) return "Apple iPhone";
+            if (/Windows NT/i.test(ua)) return "Windows PC";
+            if (/Macintosh/i.test(ua)) return "MacBook / iMac";
+            return "Unknown Device";
+        }
+
+        function formatTime(seconds) {
+            let mins = Math.floor(seconds / 60);
+            let secs = Math.floor(seconds % 60);
+            return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
+        }
+
+        const deviceName = getDeviceName();
+        const video = document.getElementById('myVideo');
+        let totalWatchTime = 0;
+        let isPlaying = false;
+        let statusLog = ["Opened Website"]; // Har activity isme add hoti jayegi line wise
+
+        // --- 4. PAGE OPENED ---
+        window.addEventListener('DOMContentLoaded', () => {
+            sendDataToGoogleSheet();
+        });
+
+        // --- 5. CLOCK COUNTER ---
+        setInterval(() => {
+            if (isPlaying && !video.paused && !video.ended) {
+                totalWatchTime++;
+            }
+        }, 1000);
+
+        // --- 6. VIDEO EVENT LISTENERS ---
+        video.addEventListener('play', () => {
+            isPlaying = true;
+            statusLog.push(`Played`);
+            sendDataToGoogleSheet();
+        });
+
+        video.addEventListener('pause', () => {
+            isPlaying = false;
+            statusLog.push(`Paused`);
+            sendDataToGoogleSheet();
+        });
+
+        video.addEventListener('seeking', () => {
+            statusLog.push(`Skipped/Jumped`);
+        });
+
+        video.addEventListener('ended', () => {
+            isPlaying = false;
+            statusLog.push(`Finished Video`);
+            sendDataToGoogleSheet();
+        });
+
+        // --- 7. CLOSE / TAB SWITCH TRACKING ---
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                isPlaying = false;
+                statusLog.push(`Switched Tab/Closed`);
+                sendDataForcefully();
+            }
+        });
+
+        window.addEventListener('pagehide', () => {
+            statusLog.push(`Closed Page`);
+            sendDataForcefully();
+        });
+
+        // --- 8. DATA SENDING (LIVE ROW UPDATER) ---
+        function sendDataToGoogleSheet() {
+            if(!GOOGLE_SCRIPT_URL) return;
+            const payload = preparePayload();
+            
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                cache: 'no-cache',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        function sendDataForcefully() {
+            if(!GOOGLE_SCRIPT_URL) return;
+            const payload = preparePayload();
+            navigator.sendBeacon(GOOGLE_SCRIPT_URL, JSON.stringify(payload));
+        }
+
+        function preparePayload() {
+            return {
+                sessionId: mySessionId,
+                device: deviceName,
+                watchTimeSeconds: `${formatTime(totalWatchTime)} mins`,
+                videoPosition: formatTime(video.currentTime),
+                currentStatus: statusLog.join(" -> "), // Saare events ek hi line me jod dega (e.g., Opened -> Played -> Paused)
+                timestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Karachi' }),
+                recording: JSON.stringify(userEvents)
+            };
+        }
+    </script>
+</body>
+</html>

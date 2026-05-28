@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Private Session Replayer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body { 
+            background: #0b0b0b; 
+            color: white; 
+            padding: 30px 20px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .control-box {
+            width: 100%;
+            max-width: 800px;
+            background: #111111;
+            border: 1px solid #222222;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        textarea { 
+            width: 100%; 
+            height: 90px; 
+            background: #161616; 
+            color: #aaaaaa; 
+            border: 1px solid #282828; 
+            padding: 12px; 
+            border-radius: 8px; 
+            resize: none;
+            font-size: 0.9rem;
+            outline: none;
+            margin-bottom: 15px;
+        }
+
+        textarea:focus {
+            border-color: #ffffff;
+            color: #ffffff;
+        }
+
+        button { 
+            background: #ffffff; 
+            color: #000000; 
+            border: none; 
+            padding: 12px 30px; 
+            font-weight: bold; 
+            font-size: 0.95rem;
+            cursor: pointer; 
+            border-radius: 6px; 
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background: #dddddd;
+            transform: translateY(-1px);
+        }
+
+        /* Is container me bina kisi extra box ya border k aapki video play hogi */
+        #replay-container { 
+            width: 100%;
+            max-width: 800px;
+            background: #000000; 
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+        }
+
+        /* rrweb player controls styling adjustment */
+        .rr-player {
+            border: none !important;
+            background: #111111 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Private User Action Replayer 🎬</h2>
+    
+    <div class="control-box">
+        <textarea id="box" placeholder="Google Sheet ke Column E (Recording) se code copy kar k yahan paste karein..."></textarea>
+        <button onclick="playSession()">Play Recording</button>
+    </div>
+
+    <!-- Ab user ki recording direct isi saaf sutre container me chalegi -->
+    <div id="replay-container"></div>
+
+    <script>
+        function playSession() {
+            const code = document.getElementById('box').value.trim();
+            const container = document.getElementById('replay-container');
+            container.innerHTML = ''; // Purani recording saaf karne k liye
+            
+            if(!code) {
+                alert("Pehle Google Sheet se code copy karke yahan paste karein!");
+                return;
+            }
+
+            try {
+                const events = JSON.parse(code);
+                
+                // Naya replayer instance create ho rha hai
+                const replayer = new rrweb.Replayer(events, { 
+                    target: container,
+                    width: 800,
+                    height: 450
+                });
+                
+                replayer.play();
+            } catch(e) {
+                alert("Ghalat code paste kiya hai. Kripya Google Sheet se poora cell sahi se copy karein.");
+                console.error(e);
+            }
+        }
+    </script>
+</body>
+</html>
