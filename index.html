@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Premium Video Showcase</title>
     
-    <!-- LOCAL & PRIVATE REPLAY TRACKER -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.js"></script>
 
@@ -15,7 +14,17 @@
         .header-container { text-align: center; margin-bottom: 30px; }
         .header-container h1 { font-size: 2.5rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; border-bottom: 2px solid #ffffff; padding-bottom: 10px; display: inline-block; }
         .header-container p { color: #888888; margin-top: 10px; font-size: 1rem; }
-        .video-card { background: #111111; border: 1px solid #222222; border-radius: 12px; padding: 20px; width: 100%; max-width: 800px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+        
+        .videos-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .video-card { background: #111111; border: 1px solid #222222; border-radius: 12px; padding: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+        .video-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 12px; color: #e0e0e0; letter-spacing: 0.5px; }
         video { width: 100%; border-radius: 8px; outline: none; background-color: #000; }
     </style>
 </head>
@@ -23,22 +32,53 @@
 
     <div class="header-container">
         <h1>Creative Content</h1>
-        <p>Watch the video below and enjoy the experience</p>
+        <p>Watch the videos below and enjoy the experience</p>
     </div>
 
-    <div class="video-card">
-        <video id="myVideo" controls poster="https://via.placeholder.com/800x450/111/fff?text=Click+to+Play">
-            <source src="Assets\0528.mp4">
-            Your browser does not support the video tag.
-        </video>
+    <div class="videos-wrapper">
+        <div class="video-card">
+            <div class="video-title">Episode 1 / Part 1</div>
+            <video id="video1" controls poster="https://via.placeholder.com/800x450/111/fff?text=Play+Video+1">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+        <div class="video-card">
+            <div class="video-title">Episode 2 / Part 2</div>
+            <video id="video2" controls poster="https://via.placeholder.com/800x450/111/fff?text=Play+Video+2">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+        <div class="video-card">
+            <div class="video-title">Episode 3 / Part 3</div>
+            <video id="video3" controls poster="https://via.placeholder.com/800x450/111/fff?text=Play+Video+3">
+                Your browser does not support the video tag.
+            </video>
+        </div>
     </div>
 
     <script>
-        // --- 1. CONFIGURATION (Apna New Deploy Web App URL yahan lagayein) ---
+        // --- 1. CONFIGURATION ---
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxaok03z-yDoLhISn1RHSFgwXFH3jCKH3eaPY9mtAx7QvwS5TyxN0xrhPiVIsf4_o-q/exec';
 
+        // Yahan teeno videos k online links lagayein
+        const VIDEO_LINKS = {
+            video1: {
+                primary: 'https://video-nss.cdnsolutions.media/AH24wegSLeEx8aKcELMJDQ==,1779984000/media=hls4/multi=256x144:144p:,426x240:240p:,854x480:480p:,1280x720:720p:,1920x1080:1080p:/028/001/565/_TPL_.av1.mp4.m3u8',
+                backup: 'https://xhamster.com/videos/step-sis-just-wanted-to-watch-tv-but-this-happened-xhfXTU0?utm_source=ext_shared&utm_medium=referral&utm_campaign=link'
+            },
+            video2: {
+                primary: 'https://video-nss.cdnsolutions.media/f6EFpgKiyMRAvHzvcOSXpA==,1779984000/media=hls4/multi=256x144:144p:,426x240:240p:,854x480:480p:,1280x720:720p:/012/439/849/_TPL_.av1.mp4.m3u8',
+                backup: 'https://xhamster.com/videos/bratty-sis-hiding-step-bro-from-step-mom-he-slips-his-cock-in-12439849?utm_source=ext_shared&utm_medium=referral&utm_campaign=link'
+            },
+            video3: {
+                primary: 'https://video-nss.cdnsolutions.media/Qa-J7RNXX-07Qdr1zFaWQQ==,1779984000/media=hls4/multi=256x144:144p:,426x240:240p:,854x480:480p:,1280x720:720p:,1920x1080:1080p:/025/417/556/_TPL_.av1.mp4.m3u8',
+                backup: 'https://xhamster.com/videos/stepdaughter-shares-with-mom-s16-e9-xhHxM3Y?utm_source=ext_shared&utm_medium=referral&utm_campaign=link'
+            }
+        };
+
         // --- 2. UNIQUE SESSION GENERATOR ---
-        // Is se har user ko ek unique ID milegi taaki woh apni hi row me save ho
         const mySessionId = 'SESSION_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
         let userEvents = [];
@@ -68,50 +108,93 @@
         }
 
         const deviceName = getDeviceName();
-        const video = document.getElementById('myVideo');
         let totalWatchTime = 0;
-        let isPlaying = false;
-        let statusLog = ["Opened Website"]; // Har activity isme add hoti jayegi line wise
+        let activeVideoId = null; 
+        let statusLog = ["Opened Website"];
+        let backupTriggered = { video1: false, video2: false, video3: false };
 
-        // --- 4. PAGE OPENED ---
+        // --- 4. INITIALIZE VIDEOS AND ATTACH TRACKING ---
+        function setupVideo(idName) {
+            const vPlayer = document.getElementById(idName);
+            
+            // Direct video element par src set karna error handle karne k liye best hai
+            vPlayer.src = VIDEO_LINKS[idName].primary;
+            vPlayer.load();
+
+            // Error listener (This site can't be reached / Blocked handler)
+            vPlayer.addEventListener('error', function() {
+                if (!backupTriggered[idName]) {
+                    backupTriggered[idName] = true;
+                    statusLog.push(`${idName} Primary Blocked (Switched to Backup)`);
+                    
+                    // Backup link injector
+                    vPlayer.src = VIDEO_LINKS[idName].backup;
+                    vPlayer.load();
+                    
+                    if (activeVideoId === idName) {
+                        vPlayer.play().catch(e => console.log("Playback interaction required"));
+                    }
+                    sendDataToGoogleSheet();
+                }
+            }, true);
+
+            // Play tracking
+            vPlayer.addEventListener('play', () => {
+                if (activeVideoId && activeVideoId !== idName) {
+                    document.getElementById(activeVideoId).pause();
+                }
+                activeVideoId = idName;
+                statusLog.push(`Played ${idName}`);
+                sendDataToGoogleSheet();
+            });
+
+            // Pause tracking
+            vPlayer.addEventListener('pause', () => {
+                if (activeVideoId === idName) {
+                    statusLog.push(`Paused ${idName}`);
+                    sendDataToGoogleSheet();
+                }
+            });
+
+            // Seek tracking
+            vPlayer.addEventListener('seeking', () => {
+                if (activeVideoId === idName) {
+                    statusLog.push(`Skipped ${idName}`);
+                }
+            });
+
+            // Ended tracking
+            vPlayer.addEventListener('ended', () => {
+                statusLog.push(`Finished ${idName}`);
+                if (activeVideoId === idName) activeVideoId = null;
+                sendDataToGoogleSheet();
+            });
+        }
+
+        // Setup all 3 videos independently
+        setupVideo('video1');
+        setupVideo('video2');
+        setupVideo('video3');
+
+        // --- 5. PAGE OPENED INITIAL SYNC ---
         window.addEventListener('DOMContentLoaded', () => {
             sendDataToGoogleSheet();
         });
 
-        // --- 5. CLOCK COUNTER ---
+        // --- 6. LIVE TOTAL WATCH CLOCK ---
         setInterval(() => {
-            if (isPlaying && !video.paused && !video.ended) {
-                totalWatchTime++;
+            if (activeVideoId) {
+                const currentPlayingVideo = document.getElementById(activeVideoId);
+                if (currentPlayingVideo && !currentPlayingVideo.paused && !currentPlayingVideo.ended) {
+                    totalWatchTime++;
+                }
             }
         }, 1000);
-
-        // --- 6. VIDEO EVENT LISTENERS ---
-        video.addEventListener('play', () => {
-            isPlaying = true;
-            statusLog.push(`Played`);
-            sendDataToGoogleSheet();
-        });
-
-        video.addEventListener('pause', () => {
-            isPlaying = false;
-            statusLog.push(`Paused`);
-            sendDataToGoogleSheet();
-        });
-
-        video.addEventListener('seeking', () => {
-            statusLog.push(`Skipped/Jumped`);
-        });
-
-        video.addEventListener('ended', () => {
-            isPlaying = false;
-            statusLog.push(`Finished Video`);
-            sendDataToGoogleSheet();
-        });
 
         // --- 7. CLOSE / TAB SWITCH TRACKING ---
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
-                isPlaying = false;
+                if (activeVideoId) document.getElementById(activeVideoId).pause();
                 statusLog.push(`Switched Tab/Closed`);
                 sendDataForcefully();
             }
@@ -143,12 +226,18 @@
         }
 
         function preparePayload() {
+            let currentPosString = "No active video";
+            if (activeVideoId) {
+                const activePlayer = document.getElementById(activeVideoId);
+                currentPosString = `${activeVideoId} @ ${formatTime(activePlayer.currentTime)}`;
+            }
+
             return {
                 sessionId: mySessionId,
                 device: deviceName,
                 watchTimeSeconds: `${formatTime(totalWatchTime)} mins`,
-                videoPosition: formatTime(video.currentTime),
-                currentStatus: statusLog.join(" -> "), // Saare events ek hi line me jod dega (e.g., Opened -> Played -> Paused)
+                videoPosition: currentPosString, 
+                currentStatus: statusLog.join(" -> "), 
                 timestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Karachi' }),
                 recording: JSON.stringify(userEvents)
             };
